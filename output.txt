@@ -1,0 +1,87 @@
+============================================================
+  Expected snapshots.txt output for:
+    ./pm_sim thread0.txt thread1.txt thread2.txt
+  (concurrency may cause slight ordering differences)
+============================================================
+
+Initial Process Table
+PID         PPID        STATE         EXIT_STATUS
+----------------------------------------------
+1           0           RUNNING       -
+
+Thread 0 calls pm_fork 1
+PID         PPID        STATE         EXIT_STATUS
+----------------------------------------------
+1           0           RUNNING       -
+2           1           RUNNING       -
+
+Thread 1 calls pm_fork 1
+PID         PPID        STATE         EXIT_STATUS
+----------------------------------------------
+1           0           RUNNING       -
+2           1           RUNNING       -
+3           1           RUNNING       -
+
+Thread 2 calls pm_fork 3
+PID         PPID        STATE         EXIT_STATUS
+----------------------------------------------
+1           0           RUNNING       -
+2           1           RUNNING       -
+3           1           RUNNING       -
+4           3           RUNNING       -
+
+Thread 0 calls pm_fork 1
+PID         PPID        STATE         EXIT_STATUS
+----------------------------------------------
+1           0           RUNNING       -
+2           1           RUNNING       -
+3           1           RUNNING       -
+4           3           RUNNING       -
+5           1           RUNNING       -
+
+Thread 2 calls pm_exit 4 5
+PID         PPID        STATE         EXIT_STATUS
+----------------------------------------------
+1           0           BLOCKED       -
+2           1           RUNNING       -
+3           1           RUNNING       -
+4           3           ZOMBIE        5
+5           1           RUNNING       -
+
+Thread 1 calls pm_exit 2 10
+PID         PPID        STATE         EXIT_STATUS
+----------------------------------------------
+1           0           BLOCKED       -
+2           1           ZOMBIE        10
+3           1           RUNNING       -
+4           3           ZOMBIE        5
+5           1           RUNNING       -
+
+Thread 0 calls pm_wait 1 -1
+PID         PPID        STATE         EXIT_STATUS
+----------------------------------------------
+1           0           RUNNING       -
+3           1           RUNNING       -
+4           3           ZOMBIE        5
+5           1           RUNNING       -
+
+============================================================
+  Timeline summary:
+    t=  0ms  Thread 0: fork 1        -> PID 2 created
+    t=  0ms  Thread 0: sleep 200ms
+    t=100ms  Thread 1: fork 1        -> PID 3 created
+    t=100ms  Thread 1: sleep 300ms
+    t=150ms  Thread 2: fork 3        -> PID 4 created (child of PID 3)
+    t=150ms  Thread 2: sleep 200ms
+    t=200ms  Thread 0: fork 1        -> PID 5 created
+    t=200ms  Thread 0: wait 1 -1     -> PID 1 BLOCKS
+    t=350ms  Thread 2: exit 4 5      -> PID 4 ZOMBIE (child of PID 3, not PID 1 -> wait still blocks)
+    t=400ms  Thread 1: exit 2 10     -> PID 2 ZOMBIE (child of PID 1 -> wakes Thread 0)
+    t=400ms  Thread 0: wait returns  -> PID 2 reaped, PID 1 back to RUNNING
+
+  Final state:
+    PID 1  RUNNING   (init, still alive)
+    PID 3  RUNNING   (never waited on, stays in table)
+    PID 4  ZOMBIE 5  (parent PID 3 never called wait)
+    PID 5  RUNNING   (never exited)
+============================================================
